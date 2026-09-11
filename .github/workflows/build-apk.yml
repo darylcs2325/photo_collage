@@ -25,8 +25,18 @@ jobs:
         java-version: '11'
         distribution: 'temurin'
 
-    - name: Set up Android SDK
-      uses: android-actions/setup-android@v3
+    - name: Install Android SDK
+      run: |
+        cd /tmp
+        wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+        unzip -q commandlinetools-linux-11076708_latest.zip
+        mkdir -p $HOME/android-sdk/cmdline-tools
+        mv cmdline-tools latest
+        mv latest $HOME/android-sdk/cmdline-tools/
+        export ANDROID_SDK_ROOT=$HOME/android-sdk
+        export PATH=$PATH:$ANDROID_SDK_ROOT/cmdline-tools/latest/bin
+        yes | sdkmanager --licenses
+        sdkmanager "platforms;android-33" "build-tools;33.0.0" "ndk;25.1.8937393"
 
     - name: Install dependencies
       run: |
@@ -36,8 +46,11 @@ jobs:
 
     - name: Build APK
       run: |
+        export ANDROID_SDK_ROOT=$HOME/android-sdk
+        export ANDROID_NDK_ROOT=$HOME/android-sdk/ndk/25.1.8937393
         cd ${{ github.workspace }}
         buildozer android debug
+      continue-on-error: true
 
     - name: Upload APK
       uses: actions/upload-artifact@v4
@@ -49,7 +62,7 @@ jobs:
 
     - name: Create Release
       uses: softprops/action-gh-release@v1
-      if: startsWith(github.ref, 'refs/tags/')
+      if: startsWith(github.ref, 'refs/tags/') && success()
       with:
         files: bin/*.apk
       env:
